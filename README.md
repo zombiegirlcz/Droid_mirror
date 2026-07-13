@@ -17,6 +17,16 @@ Co nástroj dělá, je vidět v kódu a každý ADB/scrcpy příkaz je logován 
 *Na Windows se nástroj automaticky pokusí najít `adb` a `scrcpy` v PATH.
 Pokud nejsou k dispozici, použije zabalenou verzi v `bin/`.*
 
+### QR párování (volitelné)
+
+Pro generování QR kódu (tool na PC, telefon skenuje) je potřeba:
+
+```bash
+pip install droid-mirror[qr]
+```
+
+Bez QR funguje manuální párování přes `adb pair <host>:<port> <code>`.
+
 ### Z repa
 
 ```bash
@@ -64,7 +74,7 @@ Každý příkaz je zalogovaný na stderr:
 | System Monitoring | `dumpsys battery`, `dumpsys meminfo`, `dumpsys cpuinfo`, `df -h`, `ps -A` |
 | Screen Mirroring | `scrcpy`, `scrcpy --record` |
 | WiFi / Fleet | `adb tcpip 5555`, `adb connect` (batch) |
-| Pairing | `adb pair <host>:<port> <code>` |
+| Pairing | QR generace (wifi:T:ADB formát) + `adb pair <host>:<port> <code>` |
 
 ## Bezpecnost
 
