@@ -198,25 +198,28 @@ class AdbPairingServer:
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_sock.bind(("0.0.0.0", self.port))
-        self.server_sock.listen(1)
-        self.server_sock.settimeout(1.0)  # kratky timeout, hlavni smycka ridi celkovy timeout
+        self.server_sock.listen(5)
+        self.server_sock.settimeout(2.0)
         self._running = True
         threading.Thread(target=self._accept_loop, daemon=True).start()
 
     def _accept_loop(self):
-        try:
-            conn, addr = self.server_sock.accept()
-            print(f"\n[Pripojeni] Telefon: {addr[0]}:{addr[1]}")
-            conn.settimeout(_RECV_TIMEOUT)
-            self._handle_connection(conn)
-            self._running = False  # uspesne dokonceno
-        except socket.timeout:
-            pass  # hlavni smycka rozhodne o celkovem timeoutu
-        except Exception as e:
-            print(f"\n[!] Chyba v accept: {e}")
-            import traceback
-            traceback.print_exc()
-            self._running = False
+        while self._running and not self._paired_ok:
+            try:
+                conn, addr = self.server_sock.accept()
+                print(f"\n[Pripojeni] Telefon: {addr[0]}:{addr[1]}")
+                conn.settimeout(_RECV_TIMEOUT)
+                self._handle_connection(conn)
+                if self._paired_ok:
+                    print("[OK] Parovani dokonceno, server ukoncen")
+                    break
+            except socket.timeout:
+                pass
+            except Exception as e:
+                print(f"\n[!] Chyba: {e}")
+                import traceback
+                traceback.print_exc()
+        self._running = False
         if self.server_sock:
             try: self.server_sock.close()
             except: pass
@@ -270,6 +273,8 @@ class AdbPairingServer:
 
         except socket.timeout:
             print(f"[!] Timeout - telefon neposlal data do {_RECV_TIMEOUT}s")
+            import traceback
+            traceback.print_exc()
         except ConnectionError as e:
             print(f"[!] Spojení preruseno: {e}")
         except Exception as e:
@@ -318,7 +323,8 @@ class AdbPairingServer:
         print(f"  Pokud pripojeni selze, zkus vypnout Windows Firewall")
         print(f"  nebo pridej pravidlo pro port {self.port}.")
 
-        self.start_mdns()
+        # mDNS je vypnuto - Windows dnscache blokuje odpovedi
+        # self.start_mdns()
         self.start_server()
         self.show_qr()
 
