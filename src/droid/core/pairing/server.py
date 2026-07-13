@@ -132,7 +132,7 @@ class AdbPairingServer:
     def get_qr_data(self):
         import base64
         pub_b64 = base64.b64encode(self._noise_pub).decode()
-        return f"WIFI:T:ADB;S:{self.host}:{self.port};P:{self.password};K:{pub_b64};;"
+        return f"WIFI:T:ADB;S:{self.service_name};P:{self.password};K:{pub_b64};;"
 
     def show_qr(self):
         qr_data = self.get_qr_data()
@@ -199,7 +199,7 @@ class AdbPairingServer:
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_sock.bind(("0.0.0.0", self.port))
         self.server_sock.listen(1)
-        self.server_sock.settimeout(30)
+        self.server_sock.settimeout(1.0)  # kratky timeout, hlavni smycka ridi celkovy timeout
         self._running = True
         threading.Thread(target=self._accept_loop, daemon=True).start()
 
@@ -207,20 +207,19 @@ class AdbPairingServer:
         try:
             conn, addr = self.server_sock.accept()
             print(f"\n[Pripojeni] Telefon: {addr[0]}:{addr[1]}")
-            # timeout pro cteni dat od telefonu
             conn.settimeout(_RECV_TIMEOUT)
             self._handle_connection(conn)
+            self._running = False  # uspesne dokonceno
         except socket.timeout:
-            print("\n[!] Nikdo se nepripojil (timeout 30s)")
+            pass  # hlavni smycka rozhodne o celkovem timeoutu
         except Exception as e:
             print(f"\n[!] Chyba v accept: {e}")
             import traceback
             traceback.print_exc()
-        finally:
             self._running = False
-            if self.server_sock:
-                try: self.server_sock.close()
-                except: pass
+        if self.server_sock:
+            try: self.server_sock.close()
+            except: pass
 
     # ---- Handshake ----
 
@@ -319,6 +318,7 @@ class AdbPairingServer:
         print(f"  Pokud pripojeni selze, zkus vypnout Windows Firewall")
         print(f"  nebo pridej pravidlo pro port {self.port}.")
 
+        self.start_mdns()
         self.start_server()
         self.show_qr()
 
