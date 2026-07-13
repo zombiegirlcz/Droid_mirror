@@ -80,8 +80,8 @@ def pair_device():
         print()
 
     # Nabídnout i manuální adb pair
-    do_pair = input("Chceš také spustit 'adb pair' ručně? (a/n): ").strip().lower()
-    if do_pair in ("a", "ano", "y", "yes", ""):
+    do_pair = input("Chceš také spustit 'adb pair' ručně? (a/n, výchozí n): ").strip().lower()
+    if do_pair in ("a", "ano", "y", "yes"):
         print(f"[*] Páruji s {host}...")
         result = adb_run(["pair", host, code])
         print(result)
