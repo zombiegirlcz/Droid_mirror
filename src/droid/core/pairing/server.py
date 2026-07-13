@@ -87,7 +87,8 @@ class AdbPairingServer:
     def __init__(self, password: str | None = None):
         self.password = password or self._generate_password()
         self.service_name = self._generate_service_name()
-        self.priv_bytes, self.pub_bytes = _ensure_adb_keypair()
+        # Pro Noise handshake generujeme FRESH X25519 klic (ne ADB RSA klic)
+        self._noise_priv, self._noise_pub = self._generate_noise_keypair()
         self.host = self._get_local_ip()
         self.port = self._find_free_port()
         self.server_sock: socket.socket | None = None
@@ -95,6 +96,12 @@ class AdbPairingServer:
         self._paired_ok = False
         self.zeroconf: Zeroconf | None = None
         self.service_info: ServiceInfo | None = None
+
+    @staticmethod
+    def _generate_noise_keypair() -> tuple[bytes, bytes]:
+        from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+        priv = X25519PrivateKey.generate()
+        return priv.private_bytes_raw(), priv.public_key().public_bytes_raw()
 
     @staticmethod
     def _generate_password(length=6):
@@ -123,9 +130,9 @@ class AdbPairingServer:
             return s.getsockname()[1]
 
     def get_qr_data(self):
-        # Pouzivame IP:PORT primo, ne service name.
-        # mDNS nefunguje na vetsine siti.
-        return f"WIFI:T:ADB;S:{self.host}:{self.port};P:{self.password};;"
+        import base64
+        pub_b64 = base64.b64encode(self._noise_pub).decode()
+        return f"WIFI:T:ADB;S:{self.host}:{self.port};P:{self.password};K:{pub_b64};;"
 
     def show_qr(self):
         qr_data = self.get_qr_data()
@@ -160,6 +167,8 @@ class AdbPairingServer:
     # ---- mDNS ----
 
     def start_mdns(self):
+        import base64
+        pub_b64 = base64.b64encode(self._noise_pub).decode()
         service_type = "_adb-tls-pairing._tcp.local."
         fqdn = f"{self.service_name}.{service_type}"
         self.service_info = ServiceInfo(
@@ -167,6 +176,7 @@ class AdbPairingServer:
             name=fqdn,
             addresses=[socket.inet_aton(self.host)],
             port=self.port,
+            properties={"K": pub_b64},
         )
         self.zeroconf = Zeroconf()
         self.zeroconf.register_service(self.service_info)
@@ -221,7 +231,7 @@ class AdbPairingServer:
 
             noise = NoiseConnection.from_name(b"Noise_NKpsk0_25519_AESGCM_SHA256")
             noise.set_as_responder()
-            noise.set_keypair_from_private_bytes(Keypair.STATIC, self.priv_bytes)
+            noise.set_keypair_from_private_bytes(Keypair.STATIC, self._noise_priv)
             noise.set_psks(psk=psk)
             noise.start_handshake()
 
@@ -254,7 +264,7 @@ class AdbPairingServer:
             self._paired_ok = True
 
             # odpoved: OK + nase pubkey
-            resp = noise.encrypt(b"OK" + self.pub_bytes)
+            resp = noise.encrypt(b"OK" + self._noise_pub)
             self._send_all(conn, struct.pack("!H", len(resp)) + resp)
             print("[OK] Párování dokonceno!")
             print(f"[OK] Nyní pripoj: adb connect {self.host}:5555\n")
