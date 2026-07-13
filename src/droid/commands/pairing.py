@@ -1,6 +1,7 @@
 """Wireless Debugging Pairing -- QR pairing server + manual adb pair."""
 
 from droid.core.adb_wrapper import adb_run
+from droid.ui import style
 
 
 def pair_qr():
@@ -33,7 +34,7 @@ def pair_manual():
 
     if host and code:
         print(f"[*] Páruji s {host}...")
-        print(adb_run(["pair", host, code]))
+        print(style.box(f"pair {host}", adb_run(["pair", host, code])))
     else:
         print("[!] Musíš zadat IP:port i párovací kód.")
 

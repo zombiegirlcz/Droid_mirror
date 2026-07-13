@@ -1,16 +1,17 @@
 """Screen Mirroring -- scrcpy passthrough."""
 
 from droid.core.adb_wrapper import scrcpy_run
+from droid.ui import style
 
 
 def mirror_screen():
-    print("[*] Spoustím scrcpy -- pro ukoncení zavri okno scrcpy.")
+    print(style.box("scrcpy", "Spuštěno na pozadí — zavři okno scrcpy pro ukončení.\nmůžeš používat další adb příkazy v menu."))
     scrcpy_run([])
 
 
 def record_screen():
     path = input("Cílová cesta (napr. record.mp4): ").strip() or "record.mp4"
-    print(f"[*] Nahrávám obrazovku do {path} -- Ctrl+C pro ukoncení.")
+    print(style.box(f"scrcpy --record {path}", f"Nahrávám na pozadí do {path} — zavři okno scrcpy pro ukončení."))
     scrcpy_run(["--record", path])
 
 

@@ -1,12 +1,13 @@
 """WiFi / Fleet -- enable TCP/IP mode + batch connect."""
 
 from droid.core.adb_wrapper import adb_run
+from droid.ui import style
 
 
 def enable_tcpip():
     port = input("Port (vychozí 5555): ").strip() or "5555"
     print("[*] Nastavuji TCP/IP mód (vyžaduje aktivní USB spojení).")
-    print(adb_run(["tcpip", port]))
+    print(style.box(f"tcpip {port}", adb_run(["tcpip", port])))
 
 
 def batch_connect():
@@ -23,7 +24,7 @@ def batch_connect():
         ip = ip.strip()
         if ip:
             print(f"[*] Pripojuji {ip}:{port}...")
-            print(adb_run(["connect", f"{ip}:{port}"]))
+            print(style.box(f"connect {ip}:{port}", adb_run(["connect", f"{ip}:{port}"])))
 
 
 def menu():

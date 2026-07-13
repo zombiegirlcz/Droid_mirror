@@ -4,28 +4,29 @@ import subprocess
 import sys
 
 from droid.core.adb_wrapper import adb_run, find_binary
+from droid.ui import style
 
 
 def list_devices():
-    print(adb_run(["devices", "-l"]))
+    print(style.box("devices -l", adb_run(["devices", "-l"])))
 
 
 def connect_wifi():
     host = input("IP adresa: ").strip()
     port = input("Port (vychozí 5555): ").strip() or "5555"
-    print(adb_run(["connect", f"{host}:{port}"]))
+    print(style.box(f"connect {host}:{port}", adb_run(["connect", f"{host}:{port}"])))
 
 
 def disconnect():
     target = input("IP:Port k odpojení (nebo Enter = vse): ").strip()
     if target:
-        print(adb_run(["disconnect", target]))
+        print(style.box(f"disconnect {target}", adb_run(["disconnect", target])))
     else:
-        print(adb_run(["disconnect"]))
+        print(style.box("disconnect (vse)", adb_run(["disconnect"])))
 
 
 def device_info():
-    print(adb_run(["shell", "getprop"]))
+    print(style.box("getprop", adb_run(["shell", "getprop"])))
 
 
 def reboot_menu():
@@ -36,9 +37,9 @@ def reboot_menu():
     print("  4. Zpet")
     choice = input("Vyber možnost (1-4): ").strip()
     match choice:
-        case "1": print(adb_run(["reboot"]))
-        case "2": print(adb_run(["reboot", "bootloader"]))
-        case "3": print(adb_run(["reboot", "recovery"]))
+        case "1": print(style.box("reboot", adb_run(["reboot"])))
+        case "2": print(style.box("reboot bootloader", adb_run(["reboot", "bootloader"])))
+        case "3": print(style.box("reboot recovery", adb_run(["reboot", "recovery"])))
         case _: return
 
 

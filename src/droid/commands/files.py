@@ -1,37 +1,38 @@
 """File Operations -- push, pull, ls, rm, mkdir."""
 
 from droid.core.adb_wrapper import adb_run
+from droid.ui import style
 
 
 def push_file():
     local = input("Lokální cesta: ").strip()
     remote = input("Vzdálená cesta: ").strip()
     if local and remote:
-        print(adb_run(["push", local, remote]))
+        print(style.box(f"push {local} -> {remote}", adb_run(["push", local, remote])))
 
 
 def pull_file():
     remote = input("Vzdálená cesta: ").strip()
     local = input("Lokální cíl (vychozí .): ").strip() or "."
     if remote:
-        print(adb_run(["pull", remote, local]))
+        print(style.box(f"pull {remote} -> {local}", adb_run(["pull", remote, local])))
 
 
 def list_dir():
     path = input("Cesta (vychozí /sdcard): ").strip() or "/sdcard"
-    print(adb_run(["shell", "ls", "-la", path]))
+    print(style.box(f"ls -la {path}", adb_run(["shell", "ls", "-la", path])))
 
 
 def delete_file():
     path = input("Cesta k souboru: ").strip()
     if path:
-        print(adb_run(["shell", "rm", path]))
+        print(style.box(f"rm {path}", adb_run(["shell", "rm", path])))
 
 
 def mkdir():
     path = input("Cesta k adresári: ").strip()
     if path:
-        print(adb_run(["shell", "mkdir", "-p", path]))
+        print(style.box(f"mkdir -p {path}", adb_run(["shell", "mkdir", "-p", path])))
 
 
 def menu():
