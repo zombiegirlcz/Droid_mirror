@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from droid.ui import style
+
 _ADB_PATH: str | None = None
 _SCRCPY_PATH: str | None = None
 
@@ -65,7 +67,7 @@ def adb_run(args: list[str]) -> str:
         _ADB_PATH = find_binary("adb")
 
     cmd = [_ADB_PATH] + args
-    print(f"[ADB] {' '.join(cmd)}", file=sys.stderr)
+    print(f"{style.dim('[ADB]')} {' '.join(args)}", file=sys.stderr)
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -85,19 +87,95 @@ def adb_run(args: list[str]) -> str:
 
 def scrcpy_run(args: list[str]) -> None:
     """
-    Run 'scrcpy <args>' as a passthrough subprocess (inherits stdin/stdout).
-    Does NOT wait for completion -- useful for screen mirroring.
+    Spustí 'scrcpy <args>' na pozadí (NEPOČKÁ na dokončení).
+
+    Uživatel se okamžitě vrátí do menu, zrcadlení běží dál a droid
+    mezitím přijímá další adb příkazy. Okno scrcpy zavře pro ukončení.
     """
     global _SCRCPY_PATH
     if _SCRCPY_PATH is None:
         _SCRCPY_PATH = find_binary("scrcpy")
 
     cmd = [_SCRCPY_PATH] + args
-    print(f"[SCRCPY] {' '.join(cmd)}", file=sys.stderr)
+    print(f"{style.dim('[SCRCPY]')} {' '.join(args)}", file=sys.stderr)
 
     try:
-        subprocess.run(cmd, check=False)
+        if platform.system() == "Windows":
+            subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        else:
+            subprocess.Popen(cmd, start_new_session=True)
+        print(
+            style.dim("  scrcpy spuštěno na pozadí — zavři okno pro ukončení."),
+            file=sys.stderr,
+        )
     except FileNotFoundError:
-        print(f"[CHYBA] scrcpy binary nenalezen: {_SCRCPY_PATH}", file=sys.stderr)
+        print(style.red(f"[CHYBA] scrcpy binary nenalezen: {_SCRCPY_PATH}"), file=sys.stderr)
     except Exception as e:
-        print(f"[CHYBA] scrcpy selhal: {e}", file=sys.stderr)
+        print(style.red(f"[CHYBA] scrcpy selhal: {e}"), file=sys.stderr)
+
+
+# ---- logcat streaming + filtrování ----
+
+_LOGCAT_LEVELS = {"V": 1, "D": 2, "I": 3, "W": 4, "E": 5, "F": 6}
+
+
+def extract_logcat_priority(line: str) -> str | None:
+    """
+    Vratí prioritní písmeno (E/W/I/D/V/F) z radku logcat, nebo None.
+    Format: 'MM-DD HH:MM:SS.mmm  PID  TID  P  TAG: zprava'
+    """
+    parts = line.split(None, 5)
+    if len(parts) >= 6:
+        return parts[4].upper()
+    return None
+
+
+def filter_logcat_line(line: str, filters: dict) -> bool:
+    """Vratí True, pokud radek projde vsemi zadanymi filtry."""
+    prio = extract_logcat_priority(line)
+    min_level = filters.get("priority")
+    if min_level and prio and prio in _LOGCAT_LEVELS:
+        if _LOGCAT_LEVELS[prio] < _LOGCAT_LEVELS.get(min_level.upper(), 1):
+            return False
+
+    if filters.get("tag"):
+        tag = (line.split(None, 5)[5].split(":", 1)[0] if len(line.split(None, 5)) >= 6 else "")
+        if filters["tag"].lower() not in tag.lower():
+            return False
+
+    if filters.get("keyword"):
+        msg = line.split(":", 1)[1] if ":" in line else line
+        if filters["keyword"].lower() not in msg.lower():
+            return False
+
+    return True
+
+
+def adb_logcat_stream(filters: dict) -> None:
+    """Spustí `adb logcat` jako živý stream, filtruje + obarví klientky."""
+    global _ADB_PATH
+    if _ADB_PATH is None:
+        _ADB_PATH = find_binary("adb")
+
+    print(
+        f"{style.dim('[LOGCAT]')} stream spuštěn — filtry: {filters} "
+        f"(Ctrl+C pro zastavení)",
+        file=sys.stderr,
+    )
+    try:
+        proc = subprocess.Popen(
+            [_ADB_PATH, "logcat"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            bufsize=1,
+        )
+        for line in proc.stdout:
+            if not filter_logcat_line(line, filters):
+                continue
+            print(style.logcat_color(extract_logcat_priority(line) or "", line.rstrip("\n")))
+    except KeyboardInterrupt:
+        proc.terminate()
+        print(style.dim("\n[LOGCAT] zastaveno."), file=sys.stderr)
+    except FileNotFoundError:
+        print(style.red("[CHYBA] adb binary nenalezen"), file=sys.stderr)
