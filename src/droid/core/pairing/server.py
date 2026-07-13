@@ -281,7 +281,11 @@ class AdbPairingServer:
         print(f"  Service:   {self.service_name}")
         print(f"  IP:Port:   {self.host}:{self.port}")
 
-        self.start_mdns()
+        # Otestovat jestli je port dosazitelny
+        print(f"\n  Poznámka: Telefon a PC musí být ve stejné WiFi síti.")
+        print(f"  Pokud pripojeni selze, zkus vypnout Windows Firewall")
+        print(f"  nebo pridej pravidlo pro port {self.port}.")
+
         self.start_server()
         self.show_qr()
 
