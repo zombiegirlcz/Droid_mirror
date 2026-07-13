@@ -30,6 +30,12 @@ class FilterTest(unittest.TestCase):
         self.assertTrue(filter_logcat_line(SAMPLE, {"keyword": "broke"}))
         self.assertFalse(filter_logcat_line(SAMPLE, {"keyword": "zzz"}))
 
+    def test_keyword_matches_message_not_timestamp(self):
+        # "19:14" je v casove znamce, NE ve zprave -> nesmi propustit
+        self.assertFalse(filter_logcat_line(SAMPLE, {"keyword": "19:14"}))
+        # "broke" je ve zprave -> propustit
+        self.assertTrue(filter_logcat_line(SAMPLE, {"keyword": "broke"}))
+
     def test_combined_filters(self):
         f = {"priority": "W", "tag": "tagname", "keyword": "broke"}
         self.assertTrue(filter_logcat_line(SAMPLE, f))

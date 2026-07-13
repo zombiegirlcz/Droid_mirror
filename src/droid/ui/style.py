@@ -2,7 +2,8 @@
 Droid Mirror -- ANSI barvy a formátování (žádné externí závislosti).
 
 Truecolor ANSI escape kódy. Pokud je NO_COLOR nastaveno nebo stdout není
-TTY, barvy se vypnou (plain text).
+TTY, barvy se vypnou (plain text). Barvy se také vypnou, pokud je nastavena
+proměnná prostředí DROID_PLAIN (užitečné pro logy/piping).
 """
 
 import os

@@ -23,7 +23,6 @@ def print_header():
     """Clear screen (ANSI) and print logo + header."""
     print("\033[2J\033[H", end="")  # clear screen
     print(style.green(LOGO))
-    print(style.dim("  Open-source ADB Fleet Manager  |  GPLv3"))
     print()
 
 

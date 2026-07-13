@@ -132,19 +132,30 @@ def extract_logcat_priority(line: str) -> str | None:
 
 def filter_logcat_line(line: str, filters: dict) -> bool:
     """Vratí True, pokud radek projde vsemi zadanymi filtry."""
-    prio = extract_logcat_priority(line)
+    parts = line.split(None, 5)
+    if len(parts) < 6:
+        # Nejde o standardní logcat radek (napr. pokračování) — necháme projít,
+        # abychom neztratili data.
+        return True
+
+    prio = parts[4].upper()
+    rest = parts[5]
+    # za oddelovacem "TAG: zprava" jsou tag i zprava
+    if ":" in rest:
+        tag, msg = rest.split(":", 1)
+    else:
+        tag, msg = rest, ""
+
     min_level = filters.get("priority")
-    if min_level and prio and prio in _LOGCAT_LEVELS:
+    if min_level and prio in _LOGCAT_LEVELS:
         if _LOGCAT_LEVELS[prio] < _LOGCAT_LEVELS.get(min_level.upper(), 1):
             return False
 
     if filters.get("tag"):
-        tag = (line.split(None, 5)[5].split(":", 1)[0] if len(line.split(None, 5)) >= 6 else "")
         if filters["tag"].lower() not in tag.lower():
             return False
 
     if filters.get("keyword"):
-        msg = line.split(":", 1)[1] if ":" in line else line
         if filters["keyword"].lower() not in msg.lower():
             return False
 
@@ -162,20 +173,34 @@ def adb_logcat_stream(filters: dict) -> None:
         f"(Ctrl+C pro zastavení)",
         file=sys.stderr,
     )
+    proc = None
     try:
-        proc = subprocess.Popen(
-            [_ADB_PATH, "logcat"],
+        popen_kwargs = dict(
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
             bufsize=1,
         )
+        if platform.system() == "Windows":
+            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
+        else:
+            popen_kwargs["start_new_session"] = True
+        proc = subprocess.Popen([_ADB_PATH, "logcat"], **popen_kwargs)
         for line in proc.stdout:
             if not filter_logcat_line(line, filters):
                 continue
             print(style.logcat_color(extract_logcat_priority(line) or "", line.rstrip("\n")))
     except KeyboardInterrupt:
-        proc.terminate()
         print(style.dim("\n[LOGCAT] zastaveno."), file=sys.stderr)
-    except FileNotFoundError:
-        print(style.red("[CHYBA] adb binary nenalezen"), file=sys.stderr)
+    except Exception as e:
+        print(style.red(f"[CHYBA] logcat stream selhal: {e}"), file=sys.stderr)
+    finally:
+        if proc is not None:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+            try:
+                proc.wait(timeout=5)
+            except Exception:
+                pass
