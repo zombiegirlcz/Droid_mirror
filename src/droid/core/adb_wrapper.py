@@ -187,6 +187,8 @@ def adb_logcat_stream(filters: dict) -> None:
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             bufsize=1,
         )
         # Na Windows nestačí CREATE_NEW_CONSOLE: otevřelo by se navíc syrové
