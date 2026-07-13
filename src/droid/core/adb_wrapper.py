@@ -181,9 +181,11 @@ def adb_logcat_stream(filters: dict) -> None:
             text=True,
             bufsize=1,
         )
-        if platform.system() == "Windows":
-            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
-        else:
+        # Na Windows nestačí CREATE_NEW_CONSOLE: otevřelo by se navíc syrové
+        # konzolové okno s neobarveným logcatem (výstup čteme přes PIPE a
+        # obarvujeme sami). Stdout je přesměrován do roury, takže dítě běží
+        # na pozadí a my se vrátíme do menu bez dalšího okna.
+        if platform.system() != "Windows":
             popen_kwargs["start_new_session"] = True
         proc = subprocess.Popen([_ADB_PATH, "logcat"], **popen_kwargs)
         for line in proc.stdout:
