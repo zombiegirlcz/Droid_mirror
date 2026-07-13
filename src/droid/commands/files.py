@@ -1,6 +1,9 @@
-"""File Operations -- push, pull, ls, rm, mkdir."""
+"""File Operations -- push, pull, ls, rm, mkdir, interactive shell."""
 
-from droid.core.adb_wrapper import adb_run
+import subprocess
+import sys
+
+from droid.core.adb_wrapper import adb_run, find_binary
 from droid.ui import style
 
 
@@ -35,6 +38,20 @@ def mkdir():
         print(style.box(f"mkdir -p {path}", adb_run(["shell", "mkdir", "-p", path])))
 
 
+def interactive_shell():
+    """Klasický interaktivní adb shell (PTY passthrough).
+
+    Spustí `adb shell` a propojí stdin/stdout terminálu, takže máš plnohodnotný
+    Android shell (zadej `exit` nebo Ctrl+D pro návrat do menu).
+    """
+    try:
+        adb_path = find_binary("adb")
+        print("[*] Spouštím adb shell. Pro ukoncení zadej 'exit' nebo Ctrl+D.")
+        subprocess.run([adb_path, "shell"], check=False)
+    except FileNotFoundError as e:
+        print(f"[CHYBA] {e}", file=sys.stderr)
+
+
 def menu():
     while True:
         print("\n── File Operations ──\n")
@@ -43,8 +60,9 @@ def menu():
         print("  3. List dir    (adb shell ls -la)")
         print("  4. Delete file (adb shell rm)")
         print("  5. Mkdir       (adb shell mkdir)")
-        print("  6. Zpet\n")
-        choice = input("Vyber možnost (1-6): ").strip()
+        print("  6. Shell       (interaktivní adb shell)")
+        print("  7. Zpet\n")
+        choice = input("Vyber možnost (1-7): ").strip()
 
         match choice:
             case "1": push_file()
@@ -52,8 +70,9 @@ def menu():
             case "3": list_dir()
             case "4": delete_file()
             case "5": mkdir()
-            case "6": break
+            case "6": interactive_shell()
+            case "7": break
             case _: print("\nNeplatná volba.")
 
-        if choice != "6":
+        if choice != "7":
             input("\nStiskni Enter pro pokracování...")
