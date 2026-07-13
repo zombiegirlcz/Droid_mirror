@@ -34,15 +34,38 @@ _RECV_TIMEOUT = 10  # seconds pro kazde cteni
 # ============================================================
 
 def _ensure_adb_keypair() -> tuple[bytes, bytes]:
+    """Vrati (private, public) klic pro ADB.
+    Pouzije existujici ~/.android/adbkey pokud existuje,
+    jinak vygeneruje novy."""
+    priv_path = ADB_KEY_DIR / "adbkey"
+    pub_path = ADB_KEY_DIR / "adbkey.pub"
+
+    # Pouzit existujici klic pokud uz existuje
+    if priv_path.exists() and pub_path.exists():
+        import base64
+        try:
+            pem = priv_path.read_text()
+            lines = pem.split("\n")
+            b64 = "".join(l for l in lines if l and not l.startswith("---"))
+            der = base64.b64decode(b64)
+            raw_priv = der[-32:]
+            pub_line = pub_path.read_text().strip()
+            raw_pub = base64.b64decode(pub_line.split()[0])
+            print(f"[ADB] Pouzit existujici klic: {priv_path}")
+            return raw_priv, raw_pub
+        except Exception as e:
+            print(f"[ADB] Chyba cteni klice, generuji novy: {e}")
+
     from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
     priv = X25519PrivateKey.generate()
     raw_priv = priv.private_bytes_raw()
     raw_pub = priv.public_key().public_bytes_raw()
     ADB_KEY_DIR.mkdir(parents=True, exist_ok=True)
-    _save_adb_private_key(raw_priv, ADB_KEY_DIR / "adbkey")
+    _save_adb_private_key(raw_priv, priv_path)
     import base64
     pub_b64 = base64.b64encode(raw_pub).decode()
-    (ADB_KEY_DIR / "adbkey.pub").write_text(f"{pub_b64} droid-mirror@pc\n")
+    pub_path.write_text(f"{pub_b64} droid-mirror@pc\n")
+    print(f"[ADB] Vygenerovan novy klic: {priv_path}")
     return raw_priv, raw_pub
 
 
