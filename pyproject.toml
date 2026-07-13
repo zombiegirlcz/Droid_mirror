@@ -9,6 +9,14 @@ description = "Open-source ADB/scrcpy Fleet Manager"
 readme = "README.md"
 license = { text = "GPLv3" }
 requires-python = ">=3.11"
+dependencies = [
+    "qrcode>=8.0",
+]
+
+[project.optional-dependencies]
+qr = [
+    "Pillow>=10.0",
+]
 
 [project.scripts]
 droid = "droid.app:main"
