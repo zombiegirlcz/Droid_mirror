@@ -15,6 +15,7 @@
 - Zachovat bezpečnostní guardraily (logování příkazů, žádné volání domů). [spec §Principy]
 - Android zelená `#3DDC84` = `"\x1b[38;2;61;220;132m"`. [spec §1]
 - Barvy se vypnou, pokud je `NO_COLOR` nastaveno nebo `sys.stdout` není TTY. [spec §1]
+- `scrcpy_run` spouští scrcpy **na pozadí (neblokující)** — po spuštění se okamžitě vrátí do menu, zrcadlení běží dál a lze používat další adb příkazy. [požadavek uživatele]
 
 ---
 
@@ -282,10 +283,37 @@ from droid.ui import style
     cmd = [_ADB_PATH] + args
     print(f"{style.dim('[ADB]')} {' '.join(args)}", file=sys.stderr)
 ```
-3. V `scrcpy_run` změnit log řádek:
+3. V `scrcpy_run` **nahradit celou funkci neblokující verzí** (spustí scrcpy na pozadí a vrátí se do menu; opravuje rozpor mezi docstringem „non-blocking" a původním `subprocess.run`, který blokoval):
 ```python
+import platform  # již importováno v hlavičce souboru
+
+def scrcpy_run(args: list[str]) -> None:
+    """
+    Spustí 'scrcpy <args>' na pozadí (NEPOČKÁ na dokončení).
+
+    Uživatel se okamžitě vrátí do menu, zrcadlení běží dál a droid
+    mezitím přijímá další adb příkazy. Okno scrcpy zavře pro ukončení.
+    """
+    global _SCRCPY_PATH
+    if _SCRCPY_PATH is None:
+        _SCRCPY_PATH = find_binary("scrcpy")
+
     cmd = [_SCRCPY_PATH] + args
     print(f"{style.dim('[SCRCPY]')} {' '.join(args)}", file=sys.stderr)
+
+    try:
+        if platform.system() == "Windows":
+            subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        else:
+            subprocess.Popen(cmd, start_new_session=True)
+        print(
+            style.dim("  scrcpy spuštěno na pozadí — zavři okno pro ukončení."),
+            file=sys.stderr,
+        )
+    except FileNotFoundError:
+        print(style.red(f"[CHYBA] scrcpy binary nenalezen: {_SCRCPY_PATH}"), file=sys.stderr)
+    except Exception as e:
+        print(style.red(f"[CHYBA] scrcpy selhal: {e}"), file=sys.stderr)
 ```
 4. Přidat na konec souboru (před případné existující kód) tyto funkce:
 ```python
@@ -538,15 +566,15 @@ def batch_connect():
 
 - [ ] **Step 5: Orámovat v `mirror.py`**
 
-Import `+`. `mirror_screen`/`record_screen` volají `scrcpy_run` (passthrough) — neobalovat výstup, ale přidat import a obalit info řádky:
+Import `+`. `mirror_screen`/`record_screen` volají `scrcpy_run`, které je nyní neblokující — po spuštění se vrátí do menu (zrcadlení běží na pozadí):
 ```python
 def mirror_screen():
-    print(style.box("scrcpy", "Spouštím scrcpy -- pro ukoncení zavri okno scrcpy."))
+    print(style.box("scrcpy", "Spuštěno na pozadí — zavři okno scrcpy pro ukončení.\nmůžeš používat další adb příkazy v menu."))
     scrcpy_run([])
 
 def record_screen():
     path = input("Cílová cesta (napr. record.mp4): ").strip() or "record.mp4"
-    print(style.box(f"scrcpy --record {path}", f"Nahrávám do {path} -- Ctrl+C pro ukoncení."))
+    print(style.box(f"scrcpy --record {path}", f"Nahrávám na pozadí do {path} — zavři okno scrcpy pro ukončení."))
     scrcpy_run(["--record", path])
 ```
 
