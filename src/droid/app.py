@@ -5,6 +5,8 @@ Ciselované menu, žádné externí závislosti.
 
 import sys
 
+from droid.ui import style
+
 LOGO = """
 ██████╗ ██████╗  ██████╗ ██╗██████╗     ███╗   ███╗██╗██████╗ ██████╗  ██████╗ ██████╗
 ██╔══██╗██╔══██╗██╔═══██╗██║██╔══██╗    ████╗ ████║██║██╔══██╗██╔══██╗██╔═══██╗██╔══██╗
@@ -20,7 +22,8 @@ LOGO = """
 def print_header():
     """Clear screen (ANSI) and print logo + header."""
     print("\033[2J\033[H", end="")  # clear screen
-    print(LOGO)
+    print(style.green(LOGO))
+    print(style.dim("  Open-source ADB Fleet Manager  |  GPLv3"))
     print()
 
 
@@ -28,7 +31,7 @@ def main():
     """Hlavní vstupnj bod -- zobrazí logo a main menu."""
     while True:
         print_header()
-        print("  ── HLAVNÍ MENU ──\n")
+        print(style.green("  ── HLAVNÍ MENU ──\n"))
         print("  1. Device Management")
         print("  2. App Management")
         print("  3. File Operations")
