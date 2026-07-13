@@ -7,7 +7,10 @@ Flow:
 3. Telefon naskenuje QR, spustí vlastní párovací server a vyhlásí mDNS
 4. PC detekuje telefon pres `adb mdns services`
 5. PC spustí `adb pair <ip>:<port> <code>` → Noise handshake mezi adb + telefonem
-6. Hotovo (žádný vlastní Noise server)
+6. Po úspešném párování telefon (má-li zapnuté Wireless debugging) porad
+   vysílá `_adb-tls-connect._tcp` na JINÉM portu nez byl pairing port.
+   PC ho najde pres `adb mdns services` a sám zavolá `adb connect <ip>:<port>`
+   -- uzivatel tedy IP:port nezadává rucne, jen ho tool na konci vypíše.
 """
 
 import os
@@ -69,8 +72,19 @@ class AdbPairingServer:
 
     # ---- mDNS detekce + párování ----
 
-    def _adb_mdns_services(self):
-        """Vrati seznam (ip:port, service_name) z adb mdns services."""
+    def _adb_mdns_services(self, service_filter: str = "_adb-tls-pairing"):
+        """
+        Vrati seznam (ip:port, service_name) z `adb mdns services`.
+
+        `adb mdns services` vypisuje vsechny tri typy sluzeb, ktere adbd
+        vysila po siti (viz AOSP docs/dev/adb_wifi.md):
+          - _adb._tcp             legacy `adb tcpip` mod
+          - _adb-tls-pairing._tcp beží behem parovani (QR / kod)
+          - _adb-tls-connect._tcp beží porad, dokud je zapnute
+                                   "Wireless debugging" -- tohle je adresa,
+                                   na kterou se ma volat `adb connect`.
+        `service_filter` urcuje, ktery typ chceme vytahnout.
+        """
         try:
             r = subprocess.run(
                 [self._find_adb(), "mdns", "services"],
@@ -83,11 +97,26 @@ class AdbPairingServer:
                     continue
                 # Format: "ServiceName _adb-tls-pairing._tcp IP:Port"
                 parts = line.split()
-                if len(parts) >= 3 and "_adb-tls-pairing" in line:
+                if len(parts) >= 3 and service_filter in line:
                     services.append((parts[-1], parts[0]))
             return services
         except Exception:
             return []
+
+    def _find_connect_addr(self, host_ip: str, timeout: int = 10):
+        """
+        Po uspesnem `adb pair` telefon (pokud ma zapnute Wireless debugging)
+        porad vysila `_adb-tls-connect._tcp` -- ale na JINEM portu nez byl
+        pairing port. Najdeme tenhle port podle IP adresy, kterou uz zname
+        z parovani, a vratime "ip:port" pripravene pro `adb connect`.
+        """
+        start = time.time()
+        while time.time() - start < timeout:
+            for addr, _name in self._adb_mdns_services(service_filter="_adb-tls-connect"):
+                if addr.split(":")[0] == host_ip:
+                    return addr
+            time.sleep(1)
+        return None
 
     @staticmethod
     def _find_adb():
@@ -163,12 +192,42 @@ class AdbPairingServer:
             output = (r.stdout + r.stderr).strip()
             print(f"  {output}\n")
 
-            if "Successfully paired" in output or "pair" in output.lower() and "success" in output.lower():
-                print("✓ Párování bylo úspešné!")
-                return True
-            else:
+            paired_ok = "Successfully paired" in output or (
+                "pair" in output.lower() and "success" in output.lower()
+            )
+
+            if not paired_ok:
                 print("✗ Párování se nezdařilo")
                 return False
+
+            print("✓ Párování bylo úspešné!")
+            print("  Hledám adresu pro pripojení (_adb-tls-connect._tcp)...")
+
+            host_ip = found_addr.split(":")[0]
+            connect_addr = self._find_connect_addr(host_ip, timeout=10)
+
+            if not connect_addr:
+                print("[!] Connect sluzba se neobjevila automaticky.")
+                print(f"    Zkus rucne pripojit pres Device Management -> Connect,")
+                print(f"    IP adresa telefonu je: {host_ip}")
+                return True  # parovani samo o sobe probehlo uspesne
+
+            print(f"  Nalezeno: {connect_addr}")
+            print(f"  Spouštím: adb connect {connect_addr}\n")
+
+            c = subprocess.run(
+                [adb, "connect", connect_addr],
+                capture_output=True, text=True, timeout=15,
+            )
+            connect_output = (c.stdout + c.stderr).strip()
+            print(f"  {connect_output}\n")
+
+            if "connected" in connect_output.lower():
+                print(f"✓ Pripojeno: {connect_addr}")
+            else:
+                print(f"[!] `adb connect` neuspel, zkus rucne: adb connect {connect_addr}")
+
+            return True
 
         except subprocess.TimeoutExpired:
             print("[!] adb pair timeout (30s)")
