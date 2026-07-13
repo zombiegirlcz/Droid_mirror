@@ -100,7 +100,9 @@ class AdbPairingServer:
             return s.getsockname()[1]
 
     def get_qr_data(self):
-        return f"WIFI:T:ADB;S:{self.service_name};P:{self.password};;"
+        # Pouzivame IP:PORT primo, ne service name.
+        # mDNS nefunguje na vetsine siti.
+        return f"WIFI:T:ADB;S:{self.host}:{self.port};P:{self.password};;"
 
     def show_qr(self):
         qr_data = self.get_qr_data()
@@ -109,14 +111,14 @@ class AdbPairingServer:
         qr.make(fit=True)
 
         print("\n── QR KÓD PRO SPÁROVÁNÍ ──")
-        print("  1. Na telefonu otevri: Vývojárské možnosti ->")
-        print("     Bezdrátové lade ní -> Spárovat zarízení pomocí QR")
-        print("  2. Otevrelo by se okno s QR kódem")
-        print("  3. Naskenuj QR kamerou telefonu\n")
-        print(f"  Service:  {self.service_name}")
-        print(f"  Heslo:    {self.password}")
-        print(f"  IP:       {self.host}:{self.port}")
-        print(f"  QR data:  {qr_data}\n")
+        print("  Otevrelo se okno s QR kódem v prohlížeci obrazku.")
+        print()
+        print(f"  Na telefonu otevri: Vývojárské možnosti ->")
+        print(f"  Bezdrátové lade ní -> Spárovat zarízení pomocí QR")
+        print(f"  a naskenuj QR kamerou telefonu.\n")
+        print(f"  IP:Port:   {self.host}:{self.port}")
+        print(f"  Heslo:     {self.password}")
+        print(f"  QR data:   {qr_data}\n")
 
         # Ulozit jako PNG a otevrit
         from PIL import Image as PILImage
@@ -130,7 +132,7 @@ class AdbPairingServer:
             os.startfile(save_path)
             print(f"  Otevren v defaultním prohlížeci obrazku")
         except Exception:
-            print(f"  Otevri rucne: {save_path}")
+            print(f"  Pokud se neotevre, otevri rucne: {save_path}")
 
     # ---- mDNS ----
 
