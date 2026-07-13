@@ -51,6 +51,17 @@ class StyleTest(unittest.TestCase):
         out = style.box("x", "")
         self.assertIn("žádný výstup", out)
 
+    def test_box_alignment(self):
+        import re
+        ansi = re.compile(r"\x1b\[[0-9;]*m")
+        out = style.box("ls -la /sbin/", "(žádný výstup)")
+        # měříme VIDITELNOU šířku (bez ANSI escape kódů)
+        lines = [ansi.sub("", l) for l in out.split("\n")]
+        widths = [len(l) for l in lines]
+        self.assertEqual(len(set(widths)), 1, f"box lines not aligned: {widths}")
+        self.assertTrue(lines[0].startswith("┌"))
+        self.assertTrue(lines[-1].startswith("└"))
+
     def test_logcat_color_priority_codes(self):
         e = style.logcat_color("E", "boom")
         self.assertIn("\x1b[", e)

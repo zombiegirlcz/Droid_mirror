@@ -62,7 +62,7 @@ def box(title: str, body: str) -> str:
     for l in lines:
         row = ("│ " + l).ljust(T - 1) + "│"
         out.append(green(row[:2]) + row[2:-1] + green(row[-1]))
-    out.append(green("└" + "─" * (T - 1) + "┘"))
+    out.append(green("└" + "─" * (T - 2) + "┘"))
     return "\n".join(out)
 
 
