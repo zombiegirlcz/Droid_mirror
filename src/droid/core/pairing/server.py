@@ -130,7 +130,9 @@ class AdbPairingServer:
             return s.getsockname()[1]
 
     def get_qr_data(self):
-        return f"WIFI:T:ADB;S:{self.service_name};P:{self.password};;"
+        import base64
+        pub_b64 = base64.b64encode(self._noise_pub).decode()
+        return f"WIFI:T:ADB;S:{self.host}:{self.port};P:{self.password};K:{pub_b64};;"
 
     def show_qr(self):
         qr_data = self.get_qr_data()
