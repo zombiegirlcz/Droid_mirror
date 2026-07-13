@@ -60,7 +60,9 @@ def adb_run(args: list[str]) -> str:
 
     Logs the full command to stderr, returns stdout as str.
     On non-zero exit, prints error to stderr but does NOT raise --
-    returns stdout (which often contains the error message).
+    returns stdout (which often contains the error message). Pokud je
+    stdout prázdný (napr. neúspěšný příkaz), vrací stderr, aby se chyba
+    zobrazila uvnitř boxu místo "(žádný výstup)".
     """
     global _ADB_PATH
     if _ADB_PATH is None:
@@ -73,16 +75,22 @@ def adb_run(args: list[str]) -> str:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if result.returncode != 0:
             print(
-                f"[CHYBA] adb vrátil kód {result.returncode}: {result.stderr.strip()}",
+                f"{style.dim('[CHYBA]')} adb vrátil kód {result.returncode}",
                 file=sys.stderr,
             )
-        return result.stdout
+        # Prázdný stdout (napr. neúspěšný příkaz) -> vrať stderr,
+        # ať se chyba ukáže v boxu místo "(žádný výstup)".
+        if result.stdout.strip():
+            return result.stdout
+        return result.stderr
     except FileNotFoundError:
-        print(f"[CHYBA] adb binary nenalezen: {_ADB_PATH}", file=sys.stderr)
-        return ""
+        msg = f"adb binary nenalezen: {_ADB_PATH}"
+        print(f"{style.red('[CHYBA]')} {msg}", file=sys.stderr)
+        return msg
     except Exception as e:
-        print(f"[CHYBA] adb selhal: {e}", file=sys.stderr)
-        return ""
+        msg = f"adb selhal: {e}"
+        print(f"{style.red('[CHYBA]')} {msg}", file=sys.stderr)
+        return msg
 
 
 def scrcpy_run(args: list[str]) -> None:
