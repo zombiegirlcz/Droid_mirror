@@ -19,17 +19,11 @@ Pokud nejsou k dispozici, použije zabalenou verzi v `bin/`.*
 
 ### Závislosti
 
-Pro QR párování je potřeba:
-
 ```bash
 pip install droid-mirror
 ```
 
-Pro uložení QR jako PNG (volitelné):
-
-```bash
-pip install droid-mirror[qr-img]
-```
+Pro QR párování se automaticky otevře PNG soubor v prohlížeči obrázků.
 
 ### Z repa
 

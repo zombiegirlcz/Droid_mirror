@@ -104,27 +104,33 @@ class AdbPairingServer:
 
     def show_qr(self):
         qr_data = self.get_qr_data()
-        qr = qrcode.QRCode(border=2, box_size=2)
+        qr = qrcode.QRCode(border=2, box_size=10)
         qr.add_data(qr_data)
         qr.make(fit=True)
+
         print("\n── QR KÓD PRO SPÁROVÁNÍ ──")
         print("  1. Na telefonu otevri: Vývojárské možnosti ->")
         print("     Bezdrátové lade ní -> Spárovat zarízení pomocí QR")
-        print("  2. Naskenuj tento QR kamerou telefonu:\n")
-        qr.print_ascii()
-        print()
+        print("  2. Otevrelo by se okno s QR kódem")
+        print("  3. Naskenuj QR kamerou telefonu\n")
         print(f"  Service:  {self.service_name}")
         print(f"  Heslo:    {self.password}")
         print(f"  IP:       {self.host}:{self.port}")
-        print(f"  QR data:  {qr_data}")
+        print(f"  QR data:  {qr_data}\n")
+
+        # Ulozit jako PNG a otevrit
+        from PIL import Image as PILImage
+        img = qr.make_image(fill_color="black", back_color="white")
+        save_path = Path("pairing_qr.png").resolve()
+        img.save(save_path)
+        print(f"  QR ulozen: {save_path}")
+
+        # Otevrit v default vieweru
         try:
-            from PIL import Image as PILImage
-            img = qr.make_image()
-            save_path = Path("pairing_qr.png").resolve()
-            img.save(save_path)
-            print(f"\n  QR ulozen jako: {save_path}")
-        except ImportError:
-            pass
+            os.startfile(save_path)
+            print(f"  Otevren v defaultním prohlížeci obrazku")
+        except Exception:
+            print(f"  Otevri rucne: {save_path}")
 
     # ---- mDNS ----
 

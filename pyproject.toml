@@ -13,10 +13,6 @@ dependencies = [
     "noiseprotocol",
     "zeroconf",
     "qrcode>=8.0",
-]
-
-[project.optional-dependencies]
-qr-img = [
     "Pillow>=10.0",
 ]
 
