@@ -74,6 +74,15 @@ Každý příkaz je zalogovaný na stderr:
 | WiFi / Fleet | `adb tcpip 5555`, `adb connect` (batch) |
 | Pairing | **QR párování** (server + mDNS z PC, telefon skenuje) + `adb pair` fallback |
 
+## Barvy a terminál
+
+Nástroj používá ANSI truecolor pro „hacker" vzhled (zelené logo, orámované
+výstupy, barevný logcat). Barvy se **automaticky vypnou**, pokud:
+- je nastavena proměnná prostředí `NO_COLOR`, nebo
+- výstup není terminál (např. přesměrování do souboru / pipu).
+
+Pro vynucení plain textu: `NO_COLOR=1 droid`
+
 ## Bezpecnost
 
 - Nástroj funguje JEN na zařízeních, kde má uživatel **vědomě zapnuté**
