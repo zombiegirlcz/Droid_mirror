@@ -28,7 +28,7 @@ Pro QR párování se automaticky otevře PNG soubor v prohlížeči obrázků.
 ### Z repa
 
 ```bash
-git clone https://github.com/<user>/droid-mirror.git
+git clone https://github.com/zombiegirlcz/droid-mirror.git
 cd droid-mirror
 pip install -e .
 droid
