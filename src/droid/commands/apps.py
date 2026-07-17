@@ -1,10 +1,12 @@
 """App Management -- list, install, uninstall, clear, force-stop, launch, backup."""
 
-from droid.core.adb_wrapper import adb_run
+from droid.core.adb_wrapper import adb_run, select_device
 from droid.ui import style
 
 
 def list_packages():
+    if not select_device():
+        return
     print("  Filtrovat: 1 = vse | 2 = third-party (-3) | 3 = system (-s)")
     choice = input("Vyber (1-3): ").strip()
     match choice:
@@ -14,30 +16,40 @@ def list_packages():
 
 
 def install_apk():
+    if not select_device():
+        return
     path = input("Cesta k APK souboru: ").strip()
     if path:
         print(style.box(f"install -r {path}", adb_run(["install", "-r", path])))
 
 
 def uninstall():
+    if not select_device():
+        return
     pkg = input("Package name (napr. com.example.app): ").strip()
     if pkg:
         print(style.box(f"uninstall {pkg}", adb_run(["uninstall", pkg])))
 
 
 def clear_data():
+    if not select_device():
+        return
     pkg = input("Package name: ").strip()
     if pkg:
         print(style.box(f"pm clear {pkg}", adb_run(["shell", "pm", "clear", pkg])))
 
 
 def force_stop():
+    if not select_device():
+        return
     pkg = input("Package name: ").strip()
     if pkg:
         print(style.box(f"am force-stop {pkg}", adb_run(["shell", "am", "force-stop", pkg])))
 
 
 def launch_app():
+    if not select_device():
+        return
     pkg = input("Package name: ").strip()
     activity = input("Activity name: ").strip()
     if pkg and activity:
@@ -45,6 +57,8 @@ def launch_app():
 
 
 def backup_app():
+    if not select_device():
+        return
     pkg = input("Package name: ").strip()
     out = input("Výstupní soubor (vychozí backup.ab): ").strip() or "backup.ab"
     if pkg:

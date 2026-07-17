@@ -5,6 +5,7 @@ Ciselované menu, žádné externí závislosti.
 
 import sys
 
+from droid.core.adb_wrapper import select_device, get_device_serial
 from droid.ui import style
 
 LOGO = """
@@ -23,6 +24,9 @@ def print_header():
     """Clear screen (ANSI) and print logo + header."""
     print("\033[2J\033[H", end="")  # clear screen
     print(style.green(LOGO))
+    serial = get_device_serial()
+    dev = style.yellow(serial) if serial else style.dim("žádné")
+    print(style.dim(f"  Aktivní zařízení: {dev}"))
     print()
 
 
@@ -31,6 +35,9 @@ def main():
     while True:
         print_header()
         print(style.green("  ── HLAVNÍ MENU ──\n"))
+        serial = get_device_serial()
+        dev = serial or "žádné"
+        print(f"  0. Vybrat zařízení      (active: {dev})")
         print("  1. Device Management")
         print("  2. App Management")
         print("  3. File Operations")
@@ -39,9 +46,11 @@ def main():
         print("  6. WiFi / Fleet")
         print("  7. Wireless Debugging Pairing")
         print("  8. Exit\n")
-        choice = input("Vyber možnost (1-8): ").strip()
+        choice = input("Vyber možnost (0-8): ").strip()
 
         match choice:
+            case "0":
+                select_device(force=True)
             case "1":
                 from droid.commands.device import menu as m
                 m()

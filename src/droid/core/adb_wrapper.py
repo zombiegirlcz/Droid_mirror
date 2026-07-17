@@ -14,6 +14,99 @@ from droid.ui import style
 
 _ADB_PATH: str | None = None
 _SCRCPY_PATH: str | None = None
+# Aktuálně vybrané zařízení (serial). None = žádné (globální příkazy).
+_DEVICE_SERIAL: str | None = None
+
+# Příkazy, které běží globálně (bez -s <serial>).
+_GLOBAL_CMDS = ("devices", "connect", "disconnect", "pair",
+                "tcpip", "kill-server", "start-server")
+
+
+def get_device_serial() -> str | None:
+    """Vrátí aktuálně vybraný serial zařízení (nebo None)."""
+    return _DEVICE_SERIAL
+
+
+def set_device_serial(serial: str | None) -> None:
+    """Nastaví aktivní serial zařízení (None = žádné)."""
+    global _DEVICE_SERIAL
+    _DEVICE_SERIAL = serial
+
+
+def parse_devices(raw: str) -> list[dict]:
+    """
+    Parse 'adb devices -l' výstupu do seznamu slovníků:
+        [{"serial": ..., "state": ..., "extra": ...}, ...]
+    Přeskočí hlavičku ('List of devices attached') a prázdné řádky.
+    """
+    devices: list[dict] = []
+    if not raw:
+        return devices
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.lower().startswith("list of devices"):
+            continue
+        parts = line.split(None, 2)
+        serial = parts[0] if len(parts) >= 1 else ""
+        state = parts[1] if len(parts) >= 2 else ""
+        extra = parts[2] if len(parts) >= 3 else ""
+        if not serial:
+            continue
+        devices.append({"serial": serial, "state": state, "extra": extra})
+    return devices
+
+
+def list_devices_parsed() -> list[dict]:
+    """Vrátí parseovaný seznam zařízení (odolné vůči chybě výstupu)."""
+    raw = adb_run(["devices", "-l"])
+    try:
+        return parse_devices(raw)
+    except Exception:
+        return []
+
+
+def prompt_device_selection(devices: list[dict]) -> str | None:
+    """Vytiskne číslovaný seznam a zeptá se; vrátí serial nebo None (zrušeno)."""
+    print(style.yellow("\n── Výběr zařízení ──"))
+    for i, d in enumerate(devices, 1):
+        extra = f"  {d['extra']}" if d.get("extra") else ""
+        state = d.get("state", "")
+        line = f"  {i}. {d['serial']}  [{state}]{extra}"
+        print(style.red(line) if state == "offline" else line)
+    print("  0. Zrušit")
+    choice = input("Vyber zařízení (0-{}): ".format(len(devices))).strip()
+    if not choice.isdigit():
+        return None
+    idx = int(choice)
+    if idx == 0:
+        return None
+    if 1 <= idx <= len(devices):
+        return devices[idx - 1]["serial"]
+    return None
+
+
+def select_device(force: bool = False) -> str | None:
+    """
+    Vybere zařízení a uloží ho do _DEVICE_SERIAL.
+
+    - 0 zařízení: varování, vrátí None.
+    - 1 zařízení a ne force: automaticky jeho serial.
+    - více zařízení nebo force: číslovaný výběr.
+    """
+    global _DEVICE_SERIAL
+    devices = list_devices_parsed()
+    if not devices:
+        print(style.red("\n[!] Žádné zařízení. Spusť 'adb devices' / připoj zařízení."))
+        _DEVICE_SERIAL = None
+        return None
+    if len(devices) == 1 and not force:
+        _DEVICE_SERIAL = devices[0]["serial"]
+        return _DEVICE_SERIAL
+    serial = prompt_device_selection(devices)
+    _DEVICE_SERIAL = serial
+    return serial
 
 
 def _bundled_dir() -> Path:
@@ -69,7 +162,14 @@ def adb_run(args: list[str]) -> str:
         _ADB_PATH = find_binary("adb")
 
     cmd = [_ADB_PATH] + args
-    print(f"{style.dim('[ADB]')} {' '.join(args)}", file=sys.stderr)
+    # Cílit na konkrétní zařízení přes -s (kromě globálních příkazů).
+    if (
+        _DEVICE_SERIAL
+        and args
+        and args[0] not in _GLOBAL_CMDS
+    ):
+        cmd = [_ADB_PATH, "-s", _DEVICE_SERIAL] + args
+    print(f"{style.dim('[ADB]')} {' '.join(args)}  (device: {_DEVICE_SERIAL or 'vše'})", file=sys.stderr)
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -170,15 +270,18 @@ def filter_logcat_line(line: str, filters: dict) -> bool:
     return True
 
 
-def adb_logcat_stream(filters: dict) -> None:
+def adb_logcat_stream(filters: dict, serial: str | None = None) -> None:
     """Spustí `adb logcat` jako živý stream, filtruje + obarví klientky."""
     global _ADB_PATH
     if _ADB_PATH is None:
         _ADB_PATH = find_binary("adb")
 
+    base = ["logcat"]
+    if serial:
+        base = ["-s", serial, "logcat"]
     print(
         f"{style.dim('[LOGCAT]')} stream spuštěn — filtry: {filters} "
-        f"(Ctrl+C pro zastavení)",
+        f"(device: {serial or 'vše'}) (Ctrl+C pro zastavení)",
         file=sys.stderr,
     )
     proc = None
@@ -197,7 +300,7 @@ def adb_logcat_stream(filters: dict) -> None:
         # na pozadí a my se vrátíme do menu bez dalšího okna.
         if platform.system() != "Windows":
             popen_kwargs["start_new_session"] = True
-        proc = subprocess.Popen([_ADB_PATH, "logcat"], **popen_kwargs)
+        proc = subprocess.Popen([_ADB_PATH, *base], **popen_kwargs)
         for line in proc.stdout:
             if not filter_logcat_line(line, filters):
                 continue

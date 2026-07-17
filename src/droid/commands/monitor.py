@@ -1,26 +1,39 @@
 """System Monitoring -- battery, memory, CPU, storage, processes, logcat."""
 
-from droid.core.adb_wrapper import adb_run, adb_logcat_stream
+from droid.core.adb_wrapper import adb_run, adb_logcat_stream, select_device
 from droid.ui import style
 
 
 def battery():
+    if not select_device():
+        return
     print(style.box("dumpsys battery", adb_run(["shell", "dumpsys", "battery"])))
 
 def memory():
+    if not select_device():
+        return
     print(style.box("dumpsys meminfo", adb_run(["shell", "dumpsys", "meminfo"])))
 
 def cpu():
+    if not select_device():
+        return
     print(style.box("dumpsys cpuinfo", adb_run(["shell", "dumpsys", "cpuinfo"])))
 
 def storage():
+    if not select_device():
+        return
     print(style.box("df -h", adb_run(["shell", "df", "-h"])))
 
 def processes():
+    if not select_device():
+        return
     print(style.box("ps -A", adb_run(["shell", "ps", "-A"])))
 
 def logcat():
-    """Živý, filtrovatelný logcat stream."""
+    """Živý, filtrovatelný logcat stream (cílí na vybrané zařízení)."""
+    serial = select_device()
+    if serial is None:
+        return
     print("\n── Logcat (živý stream) ──")
     print("  Minimální priorita: V / D / I / W / E / F (výchozí V)")
     prio = input("  Priorita: ").strip().upper() or "V"
@@ -29,7 +42,7 @@ def logcat():
     tag = input("  Tag (prázdné = bez filtru): ").strip()
     kw = input("  Klíčové slovo (prázdné = bez filtru): ").strip()
     filters = {"priority": prio, "tag": tag, "keyword": kw}
-    adb_logcat_stream(filters)
+    adb_logcat_stream(filters, serial=serial)
 
 
 def menu():

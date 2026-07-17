@@ -3,7 +3,7 @@
 import subprocess
 import sys
 
-from droid.core.adb_wrapper import adb_run, find_binary
+from droid.core.adb_wrapper import adb_run, find_binary, select_device
 from droid.ui import style
 
 
@@ -26,10 +26,14 @@ def disconnect():
 
 
 def device_info():
+    if not select_device():
+        return
     print(style.box("getprop", adb_run(["shell", "getprop"])))
 
 
 def reboot_menu():
+    if not select_device():
+        return
     print("\n── Reboot ──")
     print("  1. Normal (system)")
     print("  2. Bootloader")

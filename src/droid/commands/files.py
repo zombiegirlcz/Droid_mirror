@@ -3,11 +3,13 @@
 import subprocess
 import sys
 
-from droid.core.adb_wrapper import adb_run, find_binary
+from droid.core.adb_wrapper import adb_run, find_binary, select_device, get_device_serial
 from droid.ui import style
 
 
 def push_file():
+    if not select_device():
+        return
     local = input("Lokální cesta: ").strip()
     remote = input("Vzdálená cesta: ").strip()
     if local and remote:
@@ -15,6 +17,8 @@ def push_file():
 
 
 def pull_file():
+    if not select_device():
+        return
     remote = input("Vzdálená cesta: ").strip()
     local = input("Lokální cíl (vychozí .): ").strip() or "."
     if remote:
@@ -22,17 +26,23 @@ def pull_file():
 
 
 def list_dir():
+    if not select_device():
+        return
     path = input("Cesta (vychozí /sdcard): ").strip() or "/sdcard"
     print(style.box(f"ls -la {path}", adb_run(["shell", "ls", "-la", path])))
 
 
 def delete_file():
+    if not select_device():
+        return
     path = input("Cesta k souboru: ").strip()
     if path:
         print(style.box(f"rm {path}", adb_run(["shell", "rm", path])))
 
 
 def mkdir():
+    if not select_device():
+        return
     path = input("Cesta k adresári: ").strip()
     if path:
         print(style.box(f"mkdir -p {path}", adb_run(["shell", "mkdir", "-p", path])))
@@ -42,12 +52,18 @@ def interactive_shell():
     """Klasický interaktivní adb shell (PTY passthrough).
 
     Spustí `adb shell` a propojí stdin/stdout terminálu, takže máš plnohodnotný
-    Android shell (zadej `exit` nebo Ctrl+D pro návrat do menu).
+    Android shell (zadej `exit` nebo Ctrl+D pro návrat do menu). Cílí na
+    vybrané zařízení přes -s.
     """
+    serial = select_device()
     try:
         adb_path = find_binary("adb")
-        print("[*] Spouštím adb shell. Pro ukoncení zadej 'exit' nebo Ctrl+D.")
-        subprocess.run([adb_path, "shell"], check=False)
+        args = [adb_path]
+        if serial:
+            args += ["-s", serial]
+        args.append("shell")
+        print("[*] Spouštím adb shell" + (f" (-s {serial})" if serial else "") + ". Pro ukoncení zadej 'exit' nebo Ctrl+D.")
+        subprocess.run(args, check=False)
     except FileNotFoundError as e:
         print(f"[CHYBA] {e}", file=sys.stderr)
 
