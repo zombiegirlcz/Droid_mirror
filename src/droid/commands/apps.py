@@ -50,10 +50,84 @@ def force_stop():
 def launch_app():
     if not select_device():
         return
-    pkg = input("Package name: ").strip()
-    activity = input("Activity name: ").strip()
-    if pkg and activity:
-        print(style.box(f"am start {pkg}/{activity}", adb_run(["shell", "am", "start", "-n", f"{pkg}/{activity}"])))
+    pkg = input("Package name (napr. com.example.app, nebo Enter pro vyhledani): ").strip()
+    if not pkg:
+        # Nabidneme vyhledavani v third-party balíčcích
+        print("[*] Vyhledavam balíček (zadej cast nazvu, Enter = vsechny third-party):")
+        query = input("  Hledany retezec: ").strip().lower()
+        raw = adb_run(["shell", "pm", "list", "packages", "-3"])
+        pkgs = sorted(
+            line.split(":", 1)[1].strip()
+            for line in raw.splitlines()
+            if line.startswith("package:")
+        )
+        if query:
+            pkgs = [p for p in pkgs if query in p.lower()]
+        if not pkgs:
+            print(style.red("[!] Žádný balíček neodpovídá."))
+            return
+        print(f"\nNalezeno {len(pkgs)} balíčků:")
+        for i, p in enumerate(pkgs[:50], 1):
+            print(f"  {i:2}. {p}")
+        if len(pkgs) > 50:
+            print(f"  ... a dalších {len(pkgs) - 50}")
+        choice = input(f"\nVyber balíček (1-{min(len(pkgs), 50)}): ").strip()
+        if not choice.isdigit() or not (1 <= int(choice) <= min(len(pkgs), 50)):
+            print(style.red("[!] Neplatná volba."))
+            return
+        pkg = pkgs[int(choice) - 1]
+
+    # Zkusíme automaticky najít hlavní spustitelnou aktivitu
+    activity = None
+    raw = adb_run(["shell", "cmd", "package", "resolve-activity", "--brief", pkg])
+    if raw:
+        # Výstup: "com.example.app/.MainActivity"
+        line = raw.strip().splitlines()[-1].strip()
+        if line and "/" in line and not line.startswith("Error"):
+            activity = line
+
+    if not activity:
+        # Fallback: ruční zadání nebo zkusíme najít všechny aktivity
+        print(style.yellow(f"[!] Nepodařilo se automaticky najít aktivitu pro {pkg}."))
+        print("  Zkusím vypsat všechny aktivity balíčku...")
+        raw = adb_run(["shell", "dumpsys", "package", pkg])
+        acts = []
+        in_activity = False
+        for line in raw.splitlines():
+            if "Activity:" in line:
+                # Hledáme řádky typu "  Activity: com.example.app/.MainActivity"
+                stripped = line.strip()
+                if stripped.startswith("Activity:"):
+                    act = stripped.split("Activity:", 1)[1].strip().split()[0]
+                    if "/" in act:
+                        acts.append(act)
+        if acts:
+            print(f"\nNalezeno {len(acts)} aktivit:")
+            for i, a in enumerate(acts[:20], 1):
+                print(f"  {i:2}. {a}")
+            if len(acts) > 20:
+                print(f"  ... a dalších {len(acts) - 20}")
+            ch = input(f"\nVyber aktivitu (1-{min(len(acts), 20)}, Enter = první): ").strip()
+            if not ch:
+                activity = acts[0]
+            elif ch.isdigit() and 1 <= int(ch) <= min(len(acts), 20):
+                activity = acts[int(ch) - 1]
+            else:
+                activity = input("Zadej aktivitu ručně (napr. .MainActivity): ").strip()
+        else:
+            activity = input("Zadej aktivitu ručně (napr. .MainActivity): ").strip()
+
+    if not activity:
+        print(style.red("[!] Aktivita nezadána."))
+        return
+
+    # Normalizace: pokud aktivita začíná tečkou, přidáme package prefix
+    if activity.startswith("."):
+        activity = pkg + activity
+    elif "/" not in activity:
+        activity = pkg + "/." + activity
+
+    print(style.box(f"am start {activity}", adb_run(["shell", "am", "start", "-n", activity])))
 
 
 def backup_app():
